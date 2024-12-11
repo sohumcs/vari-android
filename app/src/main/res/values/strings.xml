@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">VariApp</string>
+    <string name="uploaded_image">Uploaded Image</string>
+    <string name="heatmap">Heatmap</string>
+</resources>
