@@ -6,12 +6,14 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Rect
 
-fun splitImageIntoParts(image: Bitmap): List<Bitmap> {
+// Function to split the image into parts
+fun splitImageIntoParts(image: Bitmap, gridSize: Int): List<Bitmap> {
     val parts = mutableListOf<Bitmap>()
-    val partWidth = image.width / 4
-    val partHeight = image.height / 4
-    for (i in 0 until 4) {
-        for (j in 0 until 4) {
+    val partWidth = image.width / gridSize
+    val partHeight = image.height / gridSize
+
+    for (i in 0 until gridSize) {
+        for (j in 0 until gridSize) {
             val part = Bitmap.createBitmap(image, j * partWidth, i * partHeight, partWidth, partHeight)
             parts.add(part)
         }
@@ -19,6 +21,7 @@ fun splitImageIntoParts(image: Bitmap): List<Bitmap> {
     return parts
 }
 
+// Function to calculate VARI for a single image part
 fun calculateVARI(part: Bitmap): Double {
     var sumVARI = 0.0
     val pixels = IntArray(part.width * part.height)
@@ -39,21 +42,63 @@ fun calculateVARI(part: Bitmap): Double {
     return sumVARI / pixels.size
 }
 
-fun generateHeatmap(variIndices: List<Double>, gridSize: Int): Bitmap {
-    val heatmap = Bitmap.createBitmap(gridSize, gridSize, Bitmap.Config.ARGB_8888)
+// Temporal averaging function
+fun temporalAveraging(variLists: List<List<Double>>): List<Double> {
+    val numParts = variLists[0].size
+    val averagedVari = MutableList(numParts) { 0.0 }
+
+    for (partIndex in 0 until numParts) {
+        var sum = 0.0
+        for (variList in variLists) {
+            sum += variList[partIndex]
+        }
+        averagedVari[partIndex] = sum / variLists.size
+    }
+    return averagedVari
+}
+
+// Function to generate heatmap from averaged VARI values
+fun generateHeatmap(variIndices: List<Double>, imageWidth: Int, imageHeight: Int, gridSize: Int): Bitmap {
+    val heatmap = Bitmap.createBitmap(imageWidth, imageHeight, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(heatmap)
     val paint = Paint()
 
+    val partWidth = imageWidth / gridSize
+    val partHeight = imageHeight / gridSize
+
     for ((index, vari) in variIndices.withIndex()) {
         paint.color = when {
-            vari < 0.2 -> Color.RED
-            vari < 0.5 -> Color.YELLOW
-            else -> Color.GREEN
+            vari <= -0.5 -> Color.RED // Very Barren
+            vari <= -0.2 -> Color.parseColor("#FFA500") // Barren (Orange)
+            vari <= 0.2 -> Color.YELLOW // Plain
+            vari <= 0.5 -> Color.parseColor("#90EE90") // Healthy (Light Green)
+            else -> Color.GREEN // Very Healthy
         }
-        val x = (index % 4) * (heatmap.width / 4)
-        val y = (index / 4) * (heatmap.height / 4)
-        canvas.drawRect(Rect(x, y, x + heatmap.width / 4, y + heatmap.height / 4), paint)
+        val x = (index % gridSize) * partWidth
+        val y = (index / gridSize) * partHeight
+        canvas.drawRect(Rect(x, y, x + partWidth, y + partHeight), paint)
     }
 
     return heatmap
+}
+
+// Example workflow combining the functions
+fun processImages(images: List<Bitmap>, imageWidth: Int, imageHeight: Int, gridSize: Int): Bitmap {
+    // List to store VARI values for each time step
+    val temporalVari = mutableListOf<List<Double>>()
+
+    for (image in images) {
+        // Split image into parts
+        val parts = splitImageIntoParts(image, gridSize)
+
+        // Calculate VARI for each part
+        val variValues = parts.map { calculateVARI(it) }
+        temporalVari.add(variValues)
+    }
+
+    // Perform temporal averaging
+    val averagedVari = temporalAveraging(temporalVari)
+
+    // Generate and return heatmap
+    return generateHeatmap(averagedVari, imageWidth, imageHeight, gridSize)
 }

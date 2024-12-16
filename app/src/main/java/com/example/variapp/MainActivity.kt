@@ -2,7 +2,6 @@ package com.example.variapp
 
 import android.content.Intent
 import android.graphics.Bitmap
-import android.graphics.Color
 import android.os.Bundle
 import android.provider.MediaStore
 import android.widget.Button
@@ -47,28 +46,28 @@ class MainActivity : AppCompatActivity() {
             imageView.setImageBitmap(bitmap)
 
             // Process the image, generate a heatmap, and display it
-            val parts = splitImageIntoParts(bitmap)
+            val parts = splitImageIntoParts(bitmap, 8) // Updated grid size to 8x8
             val variIndices = parts.map { calculateVARI(it) }
-            val heatmap = generateHeatmap(variIndices, bitmap.width, bitmap.height)
+            val heatmap = generateHeatmap(variIndices, bitmap.width, bitmap.height, 8) // Updated grid size to 8x8
 
             heatmapView.setImageBitmap(heatmap)
 
             // Display the area metrics
-            val areaMetrics = generateAreaMetrics(variIndices)
-            resultTextView.text = areaMetrics // Display the area metrics text
+            val areaMetrics = generateAreaMetrics(variIndices, 8) // Updated grid size to 8x8
+            resultTextView.text = areaMetrics
         }
     }
 
-    // Function to split the image into 16 parts (4x4 grid)
-    private fun splitImageIntoParts(bitmap: Bitmap): List<Bitmap> {
+    // Function to split the image into 64 parts (8x8 grid)
+    private fun splitImageIntoParts(bitmap: Bitmap, gridSize: Int): List<Bitmap> {
         val parts = mutableListOf<Bitmap>()
         val width = bitmap.width
         val height = bitmap.height
-        val partWidth = width / 4
-        val partHeight = height / 4
+        val partWidth = width / gridSize
+        val partHeight = height / gridSize
 
-        for (i in 0..3) {
-            for (j in 0..3) {
+        for (i in 0 until gridSize) {
+            for (j in 0 until gridSize) {
                 val x = j * partWidth
                 val y = i * partHeight
                 val part = Bitmap.createBitmap(bitmap, x, y, partWidth, partHeight)
@@ -79,12 +78,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     // Function to calculate the VARI (Vegetation Adjusted Index) for an image part
-    private fun calculateVARI(part: Bitmap): Float {
+    private fun calculateVARI(part: Bitmap): Double {
         val width = part.width
         val height = part.height
-        var sumRed = 0f
-        var sumGreen = 0f
-        var sumBlue = 0f
+        var sumRed = 0.0
+        var sumGreen = 0.0
+        var sumBlue = 0.0
 
         for (x in 0 until width) {
             for (y in 0 until height) {
@@ -100,27 +99,33 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Calculate VARI
-        return (sumGreen - sumRed) / (sumGreen + sumRed - sumBlue)
+        return if ((sumGreen + sumRed - sumBlue) != 0.0) {
+            (sumGreen - sumRed) / (sumGreen + sumRed - sumBlue)
+        } else {
+            0.0
+        }
     }
 
     // Function to generate the heatmap based on VARI indices
-    private fun generateHeatmap(variIndices: List<Float>, width: Int, height: Int): Bitmap {
+    private fun generateHeatmap(variIndices: List<Double>, width: Int, height: Int, gridSize: Int): Bitmap {
         val heatmapBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val partWidth = width / gridSize
+        val partHeight = height / gridSize
 
-        for (i in 0 until 4) {
-            for (j in 0 until 4) {
-                val vari = variIndices[i * 4 + j]
+        for (i in 0 until gridSize) {
+            for (j in 0 until gridSize) {
+                val vari = variIndices[i * gridSize + j]
                 val color = when {
-                    vari <= -0.5 -> Color.RED // Very Barren
-                    vari <= -0.2 -> Color.parseColor("#FFA500") // Barren (Orange)
-                    vari <= 0.2 -> Color.YELLOW // Plain
-                    vari <= 0.5 -> Color.parseColor("#90EE90") // Healthy (Light Green)
-                    else -> Color.GREEN // Very Healthy
+                    vari <= -0.5 -> android.graphics.Color.RED // Very Barren
+                    vari <= -0.2 -> android.graphics.Color.parseColor("#FFA500") // Barren (Orange)
+                    vari <= 0.2 -> android.graphics.Color.YELLOW // Plain
+                    vari <= 0.5 -> android.graphics.Color.parseColor("#90EE90") // Healthy (Light Green)
+                    else -> android.graphics.Color.GREEN // Very Healthy
                 }
-                val x = j * (width / 4)
-                val y = i * (height / 4)
-                for (dx in 0 until (width / 4)) {
-                    for (dy in 0 until (height / 4)) {
+                val x = j * partWidth
+                val y = i * partHeight
+                for (dx in 0 until partWidth) {
+                    for (dy in 0 until partHeight) {
                         heatmapBitmap.setPixel(x + dx, y + dy, color)
                     }
                 }
@@ -131,13 +136,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     // Function to generate area metrics based on VARI values
-    private fun generateAreaMetrics(variIndices: List<Float>): String {
+    private fun generateAreaMetrics(variIndices: List<Double>, gridSize: Int): String {
         val areaMetrics = StringBuilder()
-        val areas = listOf("Top Left", "Top Right", "Bottom Left", "Bottom Right")
 
-        for (i in 0 until 16) {
+        for (i in variIndices.indices) {
             val vari = variIndices[i]
-            val area = areas[i % 4] + " (${(i / 4) + 1})"
+            val row = i / gridSize + 1
+            val col = i % gridSize + 1
             val classification = when {
                 vari <= -0.5 -> "Very Barren"
                 vari <= -0.2 -> "Barren"
@@ -145,7 +150,7 @@ class MainActivity : AppCompatActivity() {
                 vari <= 0.5 -> "Healthy"
                 else -> "Very Healthy"
             }
-            areaMetrics.append("$area: $classification (VARI: %.2f)\n".format(vari))
+            areaMetrics.append("Part ($row, $col): $classification (VARI: %.2f)\n".format(vari))
         }
 
         return areaMetrics.toString()
