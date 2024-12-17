@@ -46,19 +46,19 @@ class MainActivity : AppCompatActivity() {
             imageView.setImageBitmap(bitmap)
 
             // Process the image, generate a heatmap, and display it
-            val parts = splitImageIntoParts(bitmap, 8) // Updated grid size to 8x8
+            val parts = splitImageIntoParts(bitmap, 16) // Updated grid size to 16x16
             val variIndices = parts.map { calculateVARI(it) }
-            val heatmap = generateHeatmap(variIndices, bitmap.width, bitmap.height, 8) // Updated grid size to 8x8
+            val heatmap = generateHeatmap(variIndices, bitmap.width, bitmap.height, 16) // Updated grid size to 16x16
 
             heatmapView.setImageBitmap(heatmap)
 
             // Display the area metrics
-            val areaMetrics = generateAreaMetrics(variIndices, 8) // Updated grid size to 8x8
+            val areaMetrics = generateAreaMetrics(variIndices, 16) // Updated grid size to 16x16
             resultTextView.text = areaMetrics
         }
     }
 
-    // Function to split the image into 64 parts (8x8 grid)
+    // Function to split the image into 256 parts (16x16 grid)
     private fun splitImageIntoParts(bitmap: Bitmap, gridSize: Int): List<Bitmap> {
         val parts = mutableListOf<Bitmap>()
         val width = bitmap.width

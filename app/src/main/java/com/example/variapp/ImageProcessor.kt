@@ -66,39 +66,27 @@ fun generateHeatmap(variIndices: List<Double>, imageWidth: Int, imageHeight: Int
     val partWidth = imageWidth / gridSize
     val partHeight = imageHeight / gridSize
 
-    for ((index, vari) in variIndices.withIndex()) {
-        paint.color = when {
-            vari <= -0.5 -> Color.RED // Very Barren
-            vari <= -0.2 -> Color.parseColor("#FFA500") // Barren (Orange)
-            vari <= 0.2 -> Color.YELLOW // Plain
-            vari <= 0.5 -> Color.parseColor("#90EE90") // Healthy (Light Green)
-            else -> Color.GREEN // Very Healthy
+    for (i in 0 until gridSize) {
+        for (j in 0 until gridSize) {
+            val vari = variIndices[i * gridSize + j]
+            val color = when {
+                vari <= -0.5 -> Color.RED // Very Barren
+                vari <= -0.2 -> Color.parseColor("#FFA500") // Barren (Orange)
+                vari <= 0.2 -> Color.YELLOW // Plain
+                vari <= 0.5 -> Color.parseColor("#90EE90") // Healthy (Light Green)
+                else -> Color.GREEN // Very Healthy
+            }
+
+            paint.color = color
+            canvas.drawRect(
+                (j * partWidth).toFloat(),
+                (i * partHeight).toFloat(),
+                ((j + 1) * partWidth).toFloat(),
+                ((i + 1) * partHeight).toFloat(),
+                paint
+            )
         }
-        val x = (index % gridSize) * partWidth
-        val y = (index / gridSize) * partHeight
-        canvas.drawRect(Rect(x, y, x + partWidth, y + partHeight), paint)
     }
 
     return heatmap
-}
-
-// Example workflow combining the functions
-fun processImages(images: List<Bitmap>, imageWidth: Int, imageHeight: Int, gridSize: Int): Bitmap {
-    // List to store VARI values for each time step
-    val temporalVari = mutableListOf<List<Double>>()
-
-    for (image in images) {
-        // Split image into parts
-        val parts = splitImageIntoParts(image, gridSize)
-
-        // Calculate VARI for each part
-        val variValues = parts.map { calculateVARI(it) }
-        temporalVari.add(variValues)
-    }
-
-    // Perform temporal averaging
-    val averagedVari = temporalAveraging(temporalVari)
-
-    // Generate and return heatmap
-    return generateHeatmap(averagedVari, imageWidth, imageHeight, gridSize)
 }
